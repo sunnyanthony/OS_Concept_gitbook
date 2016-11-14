@@ -265,4 +265,32 @@ AddrSpace::Translate(unsigned int vaddr, unsigned int *paddr, int isReadWrite)
     return NoException;
 }
 ```
-可以得出physical address = pageTable[virtual/PageSize]
+可以得出physical address = pageTable[virtual/PageSize].physicalPage * PageSize + virtual % PageSize。   
+因此我們知道在放置code segments時，該如何有效的放到physical page address。
+```C++
+// then, copy in the code and data segments into memory
+// Note: this code assumes that virtual address = physical address
+    if (noffH.code.size > 0) {
+        DEBUG(dbgAddr, "Initializing code segment.");
+        DEBUG(dbgAddr, noffH.code.virtualAddr << ", " << noffH.code.size);
+        /*executable->ReadAt(
+                &(kernel->machine->mainMemory[noffH.code.virtualAddr]),
+                        noffH.code.size, noffH.code.inFileAddr);*/
+        executable->ReadAt(
+                &(kernel->machine->mainMemory[pageTable[noffH.code.virtualAddr/PageSize].physicalPage * PageSize + noffH.code.virtualAddr%PageSize]),
+                        noffH.code.size, noffH.code.inFileAddr);
+    }
+    if (noffH.initData.size > 0) {
+        DEBUG(dbgAddr, "Initializing data segment.");
+        DEBUG(dbgAddr, noffH.initData.virtualAddr << ", " << noffH.initData.size);
+        executable->ReadAt(
+                &(kernel->machine->mainMemory[pageTable[noffH.initData.virtualAddr/PageSize].physicalPage * PageSize + noffH.initData.virtualAddr%PageSize]]),
+                        noffH.initData.size, noffH.initData.inFileAddr);
+    }
+```
+這個計算是先算出virtual address是在program本身pagetable中的哪一個page(也因為pageTable[i].virtualPage=i，所以可以直接透過virtual address得到pageTable對應的page內容)，然後再取得此page的physicalPage的id，在乘上page大小，以及加上offset，這樣就可以捯到physical address。   
+這樣就能夠讓不同的program可以使用到不重疊的segments page。   
+最後還需要在結束program時，釋放所佔用的page資源。透過修改`AddrSpace::~AddrSpace()`可得
+```C++
+
+```

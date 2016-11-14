@@ -207,7 +207,7 @@ unsigned int j = 0;//使用unsigned是因為記憶體位址沒有正負號差別
 for(int i=0;i<numPages;i++)
 {
   pageTable[i].virtualPage = i;   // for now, virt page # = phys page #
-  while(j < NumPhysPages && AddrSpace::ALLpyhsicaltable[j] == 1 )
+  while(j < NumPhysPages && AddrSpace::ALLphysicaltable[j] == 1 )
         j++;
   AddrSpace::ALLphysicaltable[j] = 1;
   pageTable[i].physicalPage = j;

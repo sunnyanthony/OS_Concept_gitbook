@@ -292,5 +292,11 @@ AddrSpace::Translate(unsigned int vaddr, unsigned int *paddr, int isReadWrite)
 這樣就能夠讓不同的program可以使用到不重疊的segments page。   
 最後還需要在結束program時，釋放所佔用的page資源。透過修改`AddrSpace::~AddrSpace()`可得
 ```C++
-
+AddrSpace::~AddrSpace()
+{
+   for(int i =0;i<numPages;i++){
+        AddrSpace::ALLphysicaltable[pageTable[i].physicalPage] = -1;
+   }
+   delete pageTable;
+}
 ```

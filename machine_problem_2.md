@@ -92,7 +92,7 @@ AddrSpace::Load(char *fileName)
     -                  -
     -       Heap       -
     --------------------
-    -       BSS        -   Basic Service Set   
+    -       BSS        -   Block Started by Symbol   
     --------------------
     -       Data       -
     --------------------

@@ -21,4 +21,4 @@ CPU<---| L1:100~149             |<-┐   /*Using a shortest job first scheduling
 * 149 is highest priority
 * An aging mechanism
   * Increased by 10 after waiting for every 1500 ticks
-* Implementation of "-eq" argument for Nachos command line
+* Implementation of "-eq" argument for Nachos command line to initial processes/threads priority value

@@ -14,8 +14,11 @@ CPU<---| L1:100~149             |<-┐   /*Using a shortest job first scheduling
     _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _| 
     |  __________________________
     └--| L3:0~49                |      /*Using a round-boin scheduling*/
-       |________________________|
+       |________________________|      /*The time quantum is 100 ticks instead of 500 ticks*/
 
 ```
 * Priority value between 0 to 149
 * 149 is highest priority
+* An aging mechanism
+  * Increased by 10 after waiting for every 1500 ticks
+* Implementation of "-eq" argument for Nachos command line

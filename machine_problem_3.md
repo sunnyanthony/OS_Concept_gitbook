@@ -50,7 +50,7 @@ Kernel::Initialize()
     interrupt->Enable();
 }
 ```
-kernel物件初始化時會開啟scheduler，並在Exec中新增thread到scheduler。
+kernel物件初始化時會開啟scheduler，並在Exec中新增thread到scheduler。並且初始化alarm，會設定machine/stats.h的TimerTicks到timer物件當中，用來設定rr的時間。
 ```C++
 int Kernel::Exec(char* name)
 {
@@ -80,7 +80,7 @@ Thread::Fork(VoidFunctionPtr func, void *arg)
     (void) interrupt->SetLevel(oldLevel);
 }
 ```
-kernel在main是global variable，所以其他物件都可以存取到kernel物件的位址。在Fork()當中，把thread(`this`)放到scheduler當中的readytorun。可以在thread/scheduler.cc中看到
+kernel在main是global variable，所以其他物件都可以存取到kernel物件的位址。在Fork()當中，把thread(`this`)放到scheduler當中的readytorun。並且在執行scheduler前，會開啟interrupt，。可以在thread/scheduler.cc中看到
 ```C++
 void
 Scheduler::ReadyToRun (Thread *thread)

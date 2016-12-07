@@ -22,3 +22,10 @@ CPU<---| L1:100~149             |<-┐   /*Using a shortest job first scheduling
 * An aging mechanism
   * Increased by 10 after waiting for every 1500 ticks
 * Implementation of "-eq" argument for Nachos command line to initial processes/threads priority value
+
+
+--------------------------------------------
+首先先進入到thread/main.cc新增-eq的option，並開始trace code。
+```C++
+
+```

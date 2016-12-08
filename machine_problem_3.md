@@ -5,16 +5,16 @@
 ```
 
        __________________________
-CPU<---| L1:100~149             |<-┐   /*Using a shortest job first scheduling*/
-       |________________________|  |   /*The approximated equation: t(i)=0.5*T+0.5*t(i-1)*/
-    _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _| 
+CPU<---| L1:100~149             |--┐   /*Using a shortest job first scheduling*/
+       |________________________|  |   /*The approximated equation: t(i)=0.5*T+0.5*t(i-1), t(0) =0*/
+    _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _|   /*preemptive*/
     |  __________________________      
-    └--| L2:50~99               |<-┐   /*Using a priority scheduling*/
-       |________________________|  |
+    └->| L2:50~99               |--┐   /*Using a priority scheduling*/
+CPU<---|________________________|  |   
     _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _| 
     |  __________________________
-    └--| L3:0~49                |      /*Using a round-boin scheduling*/
-       |________________________|      /*The time quantum is 100 ticks instead of 500 ticks*/
+    └->| L3:0~49                |      /*Using a round-boin scheduling*/
+CPU<---|________________________|      /*The time quantum is 100 ticks instead of 500 ticks*/
 
 ```
 * Priority value between 0 to 149
@@ -27,7 +27,10 @@ CPU<---| L1:100~149             |<-┐   /*Using a shortest job first scheduling
 --------------------------------------------
 首先先進入到thread/main.cc看到
 ```C++
-
+kernel = new Kernel(argc, argv);
+kernel->Initialize();
+...
+kernel->ExecAll();
 ```
 之後可以看到thread/kernel.cc
 ```C++
@@ -95,4 +98,44 @@ Scheduler::ReadyToRun (Thread *thread)
 thread會被放到readyList當中，並且thread的status會被設為READY。  
 
 -------------
-了解大致上的運作之後，我們先從thread/scheduler.cc開始下手。
+了解大致上的運作之後，我們先從thread/thread.h跟thread.cc開始下手。
+我相我們應該要先將thread增加priority/brust跟設定priority/brust的method。
+```C++
+private:
+    // NOTE: DO NOT CHANGE the order of these first two members.
+    // THEY MUST be in this position for SWITCH to work.
+    int *stackTop;                       // the current stack 
+    ...
+    int priority;
+    int CPUbrust;
+public:
+...
+    // basic thread operations
+    void setpriority(int p);
+    int getpriority();
+    void setbrust(int b){CPUburst = b;}
+    int getbrust(){return CPUburst;}
+```
+這邊新增`priority`private變數，並透過`setpriority()`跟`getpriority()`做存取。在thread.cc中實作。
+```C++
+//--------------------
+//Setting and getting priority.
+//--------------------
+void
+Thread::setpriority(int p)
+{
+   priority = p;
+}
+int
+Thread::getpriority()
+{
+   return priority;
+}
+```
+接下來去修改thread/scheduler.h，新增三個queue。
+```C++
+List<Thread *> *L3_readyList;  // queue of threads that are ready to run,
+List<Thread *> *L2_readyList;  // queue of threads that are ready to run,
+List<Thread *> *L1_readyList;
+```
+

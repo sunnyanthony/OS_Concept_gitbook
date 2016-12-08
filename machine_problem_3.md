@@ -92,4 +92,7 @@ Scheduler::ReadyToRun (Thread *thread)
     readyList->Append(thread);
 }
 ```
-thread會被放到readyList當中，並且thread的status會被設為READY。
+thread會被放到readyList當中，並且thread的status會被設為READY。  
+
+-------------
+了解大致上的運作之後，我們先從thread/scheduler.cc開始下手。

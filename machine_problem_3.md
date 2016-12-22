@@ -134,8 +134,46 @@ Thread::getpriority()
 ```
 接下來去修改thread/scheduler.h，新增三個queue。
 ```C++
-List<Thread *> *L3_readyList;  // queue of threads that are ready to run,
-List<Thread *> *L2_readyList;  // queue of threads that are ready to run,
-List<Thread *> *L1_readyList;
-```
+int priority(Thread *a, Thread *b){
+    int apriority = a->getpriority();
+    int bpriority = b->getpriority();
+    return ((apriority == bpriority) ? 0 : ((apriority > bpriority)? 1 : -1));
+}
+int sjfs(Thread *a, Thread *b){
+    int apriority = a->getbrust();
+    int bpriority = b->getbrust();
+    return ((apriority == bpriority) ? 0 : ((apriority > bpriority)? 1 : -1));
+}
+Scheduler::Scheduler()
+{
+    L1_readyList = new Sorted<Thread *>(sjfs);
+    L2_readyList = new SortedList<Thread *>(priority);
+    L3_readyList = new List<Thread *>;
+    toBeDestroyed = NULL;
+}
 
+```
+之後更改`ReadToRun`
+```c++
+void
+Scheduler::ReadyToRun (Thread *thread)
+{
+    ASSERT(kernel->interrupt->getLevel() == IntOff);
+    DEBUG(dbgThread, "Putting thread on ready list: " << thread->getName());
+        //cout << "Putting thread on ready list: " << thread->getName() << endl ;
+    thread->setStatus(READY);
+    int priority;
+    priority = thread->getpriority();
+    if(priority>99){
+        Thread *oldThread = kernel->currentThread;
+        L1_readyList->Insert(thread);
+        if(oldThread->getbrust() > thread->getbrust())
+            kernel->currentThread->Yield();
+    }
+    else if(priority>49)
+        L2_readyList->Insert(thread);
+    else
+        L3_readyList->Append(thread);
+    //readyList->Append(thread);
+}
+```

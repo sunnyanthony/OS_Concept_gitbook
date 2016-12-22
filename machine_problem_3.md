@@ -153,7 +153,7 @@ Scheduler::Scheduler()
 }
 
 ```
-之後更改`ReadToRun`
+之後更改`Scheduler::ReadToRun()`
 ```c++
 void
 Scheduler::ReadyToRun (Thread *thread)
@@ -177,3 +177,4 @@ Scheduler::ReadyToRun (Thread *thread)
     //readyList->Append(thread);
 }
 ```
+將不同優先權的thread放到不同的queue當中，並且L1是可以搶佔的，所以在計算新近thread的approximated job execution time比較小時，就呼叫`Thread::Yield ()`產生interrupt，並且在`Thread::Yield () 當中的 kernel->scheduler->Run(nextThread, FALSE);`時，發生context switch，來完成。

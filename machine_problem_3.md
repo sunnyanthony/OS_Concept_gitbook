@@ -294,7 +294,6 @@ Scheduler::ReadyToRun (Thread *thread)
         //只算usertick，因為我們scheduler只負責user thread的schedule
         //若包含systick(totalticks)，這樣會無法知道我們thread實際上使用CPU的時間
         if(oldbrust > thread->getbrust()){
-            oldThread->setbrust(oldbrust);
             kernel->currentThread->Yield();
         }
     }
@@ -333,7 +332,8 @@ Scheduler::Run (Thread *nextThread, bool finishing)
     Thread *oldThread = kernel->currentThread;
 
     ASSERT(kernel->interrupt->getLevel() == IntOff);
-
+    int oldbrust = 0.5*oldThread->getbrust()+0.5*(kernel->stats->userTicks-oldThread->stick);
+    oldThread->setbrust(oldbrust);
     ...
     nextThread->stick = kernel->stats->userTicks;
     DEBUG(dbgThread, "Switching from: " << oldThread->getName() << " to: " << nextThread->getName());
@@ -347,4 +347,4 @@ Scheduler::Run (Thread *nextThread, bool finishing)
     ...
 }
 ```
-在`Run()`中設定開始執行的時間，方便計算CPUBrust。
+在`Run()`中設定nextTread開始執行的時間，方便計算CPUBrust。也在這邊設定oldThread的brust。這裡不管thread從running狀態移到waiting或是ready，都可以設定到。包含preemtive或是I/O interrupt。

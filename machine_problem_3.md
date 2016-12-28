@@ -102,7 +102,7 @@ Alarm::Alarm(bool doRandom)
 {
     timer = new Timer(doRandom, this);
 }
-``
+```
 這邊可以看到kernel新增一個alarm物件的時候其實是去設定timer，並且把alarm的物件給予timer(this是alarm物件)。
 ```c++
 Timer::Timer(bool doRandom, CallBackObj *toCall)
@@ -306,7 +306,26 @@ Scheduler::ReadyToRun (Thread *thread)
     //readyList->Append(thread);
 }
 ```
-將不同優先權的thread放到不同的queue當中，並且L1是可以搶佔的，所以在計算新近thread的approximated job execution time比較小時，就呼叫`Thread::Yield ()`產生interrupt，並且在`Thread::Yield () 當中的 kernel->scheduler->Run(nextThread, FALSE);`時，發生context switch，來完成。
+將不同優先權的thread放到不同的queue當中，並且L1是可以搶佔的，所以在計算新近thread的approximated job execution time比較小時，就呼叫`Thread::Yield ()`產生interrupt，並且在`Thread::Yield () 當中的 kernel->scheduler->Run(nextThread, FALSE);`時，發生context switch，來完成。並且可以從`Yield()`當中看到，會先將本身的thread在被SWITCH之前，會先執行`ReadyToRun(this)`，也就是先放到scheduler後在進行switch。
+```c++
+void
+Thread::Yield ()
+{
+    Thread *nextThread;
+    IntStatus oldLevel = kernel->interrupt->SetLevel(IntOff);
+
+    ASSERT(this == kernel->currentThread);
+
+    DEBUG(dbgThread, "Yielding thread: " << name);
+
+    nextThread = kernel->scheduler->FindNextToRun();
+    if (nextThread != NULL) {
+        kernel->scheduler->ReadyToRun(this);
+        kernel->scheduler->Run(nextThread, FALSE);
+    }
+    (void) kernel->interrupt->SetLevel(oldLevel);
+}
+```
 ```c++
 void
 Scheduler::Run (Thread *nextThread, bool finishing)
@@ -328,4 +347,4 @@ Scheduler::Run (Thread *nextThread, bool finishing)
     ...
 }
 ```
-在`Run()`終設定開始執行的時間，方便計算CPUBrust。
+在`Run()`中設定開始執行的時間，方便計算CPUBrust。

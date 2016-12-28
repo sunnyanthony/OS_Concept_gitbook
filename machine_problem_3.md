@@ -347,4 +347,19 @@ Scheduler::Run (Thread *nextThread, bool finishing)
     ...
 }
 ```
-在`Run()`中設定nextTread開始執行的時間，方便計算CPUBrust。也在這邊設定oldThread的brust。這裡不管thread從running狀態移到waiting或是ready，都可以設定到。包含preemtive或是I/O interrupt。
+在`Run()`中設定nextTread開始執行的時間，方便計算CPUBrust。也在這邊設定oldThread的brust。這裡不管thread從running狀態移到waiting或是ready，都可以設定到。包含preemtive或是I/O interrupt。  並且更改`alarm::callback()`，讓timer的interrupt只會影響RR scheduling。  
+```c++
+void
+Alarm::CallBack()
+{
+    Interrupt *interrupt = kernel->interrupt;
+    MachineStatus status = interrupt->getStatus();
+
+    if(kernel->currentThread->getpriority()<50){ //RR
+        if (status != IdleMode) {
+            interrupt->YieldOnReturn();
+        }
+    }
+}
+```
+到這邊，大是上簡易功能都完成。

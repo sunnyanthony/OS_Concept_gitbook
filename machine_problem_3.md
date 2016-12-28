@@ -96,6 +96,7 @@ Scheduler::ReadyToRun (Thread *thread)
 }
 ```
 thread會被放到readyList當中，並且thread的status會被設為READY。  
+在timer給予interrupt可以看`machine/timer.*`
 
 -------------
 了解大致上的運作之後，我們先從thread/thread.h跟thread.cc開始下手。
@@ -115,6 +116,26 @@ public:
     int getpriority();
     void setbrust(int b){CPUburst = b;}
     int getbrust(){return CPUburst;}
+    int stick;
+```
+並且初始化Thread所需要的設定。
+```C++
+Thread::Thread(char* threadName, int threadID)
+{
+        ID = threadID;
+    name = threadName;
+    stackTop = NULL;
+    stack = NULL;
+    status = JUST_CREATED;
+    stick = -1;//先將執行的時間設定為-1
+    this.setbrust(0); //並且將t(0)=0 設定上去
+    for (int i = 0; i < MachineStateSize; i++) {
+        machineState[i] = NULL;         // not strictly necessary, since
+                                        // new thread ignores contents
+                                        // of machine registers
+    }
+    space = NULL;
+}
 ```
 這邊新增`priority`private變數，並透過`setpriority()`跟`getpriority()`做存取。在thread.cc中實作。
 ```C++
@@ -164,12 +185,19 @@ Scheduler::ReadyToRun (Thread *thread)
     thread->setStatus(READY);
     int priority;
     priority = thread->getpriority();
+   
     if(priority>99){
-        Thread *oldThread = kernel->currentThread;
         L1_readyList->Insert(thread);
-        if(oldThread->getbrust() > thread->getbrust())
+        Thread *oldThread = kernel->currentThread;
+        int oldbrust = 0.5*oldThread->getbrust()+0.5*(kernel->stats->userTicks-oldThread->stick);
+        //只算usertick，因為我們scheduler只負責user thread的schedule
+        //若包含systick(totalticks)，這樣會無法知道我們thread實際上使用CPU的時間
+        if(oldbrust > thread->getbrust()){
+            oldThread->setbrust(oldbrust);
             kernel->currentThread->Yield();
+        }
     }
+
     else if(priority>49)
         L2_readyList->Insert(thread);
     else
@@ -178,3 +206,25 @@ Scheduler::ReadyToRun (Thread *thread)
 }
 ```
 將不同優先權的thread放到不同的queue當中，並且L1是可以搶佔的，所以在計算新近thread的approximated job execution time比較小時，就呼叫`Thread::Yield ()`產生interrupt，並且在`Thread::Yield () 當中的 kernel->scheduler->Run(nextThread, FALSE);`時，發生context switch，來完成。
+```c++
+void
+Scheduler::Run (Thread *nextThread, bool finishing)
+{
+    Thread *oldThread = kernel->currentThread;
+
+    ASSERT(kernel->interrupt->getLevel() == IntOff);
+
+    ...
+    nextThread->stick = kernel->stats->userTicks;
+    DEBUG(dbgThread, "Switching from: " << oldThread->getName() << " to: " << nextThread->getName());
+
+    // This is a machine-dependent assembly language routine defined
+    // in switch.s.  You may have to think
+    // a bit to figure out what happens after this, both from the point
+    // of view of the thread and from the perspective of the "outside world".
+
+    SWITCH(oldThread, nextThread);//儲存oldthread，並讀取nextthread
+    ...
+}
+```
+在`Run()`終設定開始執行的時間，方便計算CPUBrust。

@@ -96,7 +96,108 @@ Scheduler::ReadyToRun (Thread *thread)
 }
 ```
 thread會被放到readyList當中，並且thread的status會被設為READY。  
-在timer給予interrupt可以看`machine/timer.*`
+在timer給予interrupt可以看`thread/alarm.cc`跟`machine/timer.*`
+```c++
+Alarm::Alarm(bool doRandom)
+{
+    timer = new Timer(doRandom, this);
+}
+``
+這邊可以看到kernel新增一個alarm物件的時候其實是去設定timer，並且把alarm的物件給予timer(this是alarm物件)。
+```c++
+Timer::Timer(bool doRandom, CallBackObj *toCall)
+{
+    randomize = doRandom;
+    callPeriodically = toCall;
+    disable = FALSE;
+    SetInterrupt();
+}
+```
+timer就會設定發生time out的handler，也就是callPeriodically(alarm->CallBack())。最後就是把timer interrupt放到interrupt的schedule當中。並且可以由`machine/stat.h`得知interrupt的period為100 ticks。
+```c++
+void
+Timer::SetInterrupt()
+{
+    if (!disable) {
+       int delay = TimerTicks;
+
+       if (randomize) {
+             delay = 1 + (RandomNumber() % (TimerTicks * 2));
+        }
+       // schedule the next timer device interrupt
+       kernel->interrupt->Schedule(this, delay, TimerInt);
+    }
+}
+/*machine/stat.h
+const int UserTick =       1;   // advance for each user-level instruction
+const int SystemTick =    10;   // advance each time interrupts are enabled
+const int RotationTime = 500;   // time disk takes to rotate one sector
+const int SeekTime =     500;   // time disk takes to seek past one track
+const int ConsoleTime =  100;   // time to read or write one character
+const int NetworkTime =  100;   // time to send or receive one packet
+const int TimerTicks =   100;   // (average) time between timer interrupts
+*/
+```
+然後tick(onetick)作運算的時候，都會透過CheckIfDue去檢查interrupt當中的scheduler裡面是否有time out的情況。
+```c++
+bool
+Interrupt::CheckIfDue(bool advanceClock)
+{
+    PendingInterrupt *next;
+    Statistics *stats = kernel->stats;
+
+    ASSERT(level == IntOff);            // interrupts need to be disabled,
+                                        // to invoke an interrupt handler
+    if (debug->IsEnabled(dbgInt)) {
+        DumpState();
+    }
+    if (pending->IsEmpty()) {           // no pending interrupts
+        return FALSE;
+    }
+    next = pending->Front();
+
+    if (next->when > stats->totalTicks) {
+        if (!advanceClock) {            // not time yet
+            return FALSE;
+        }
+        else {                  // advance the clock to next interrupt
+            stats->idleTicks += (next->when - stats->totalTicks);
+            stats->totalTicks = next->when;
+            // UDelay(1000L); // rcgood - to stop nachos from spinning.
+        }
+    }
+
+    DEBUG(dbgInt, "Invoking interrupt handler for the ");
+    DEBUG(dbgInt, intTypeNames[next->type] << " at time " << next->when);
+
+    if (kernel->machine != NULL) {
+        kernel->machine->DelayedLoad(0, 0);
+    }
+
+    inHandler = TRUE;
+    do {
+        next = pending->RemoveFront();    // pull interrupt off list
+        next->callOnInterrupt->CallBack();// call the interrupt handler
+        delete next;
+    } while (!pending->IsEmpty()
+                && (pending->Front()->when <= stats->totalTicks));
+    inHandler = FALSE;
+    return TRUE;
+}
+
+void
+Interrupt::Schedule(CallBackObj *toCall, int fromNow, IntType type)
+{
+    int when = kernel->stats->totalTicks + fromNow;
+    PendingInterrupt *toOccur = new PendingInterrupt(toCall, when, type);
+
+    DEBUG(dbgInt, "Scheduling interrupt handler the " << intTypeNames[type] << " at time = " << when);
+    ASSERT(fromNow > 0);
+
+    pending->Insert(toOccur);
+}
+```
+若有發現pending(interrupt scheduler)裡面的event有發生time out，就交給CallBack()去執行event interrupt。  
 
 -------------
 了解大致上的運作之後，我們先從thread/thread.h跟thread.cc開始下手。
